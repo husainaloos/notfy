@@ -74,3 +74,16 @@ func (api API) marshal(m Email, i status.Info) ([]byte, error) {
 	}
 	return b, nil
 }
+
+// MockAPI is a mock of APIInterface
+type MockAPI struct {
+	queue func(Email) (Email, status.Info, error)
+}
+
+// NewMockAPI creates a new mock
+func NewMockAPI(queue func(Email) (Email, status.Info, error)) *MockAPI { return &MockAPI{queue} }
+
+// Queue mocked
+func (api *MockAPI) Queue(e Email) (Email, status.Info, error) {
+	return api.queue(e)
+}
