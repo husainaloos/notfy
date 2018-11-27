@@ -40,7 +40,7 @@ func Test_sendEmailHandler(t *testing.T) {
 
 	t.Run("should return internal server error if the publisher fails", func(t *testing.T) {
 		statusAPI := status.NewAPI(status.NewInMemoryStorage())
-		api := NewAPIHandler(&messaging.ErrPublisher{errors.New("[testing] ErrPublisher is configured to return error")}, statusAPI)
+		api := NewAPIHandler(&messaging.ErrPublisher{Err: errors.New("[testing] ErrPublisher is configured to return error")}, statusAPI)
 		w := httptest.NewRecorder()
 		body := strings.NewReader(`{"from" : "email@gmail.com", "to" : ["fiend@gmail.com"]}`)
 		r := httptest.NewRequest(http.MethodPost, "http://localhost", body)
