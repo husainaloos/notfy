@@ -37,6 +37,7 @@ type emailDto struct {
 
 type emailStatus struct {
 	ID        int       `json:"id"`
+	StatusID  int       `json:"status_id"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -85,6 +86,7 @@ func (api *HTTPHandler) sendEmailHandler(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(emailStatus{
 		ID:        email.ID(),
+		StatusID:  info.ID(),
 		Status:    info.Status().String(),
 		CreatedAt: info.CreatedAt(),
 	})
