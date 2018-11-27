@@ -3,18 +3,16 @@ package status
 import (
 	"reflect"
 	"testing"
-	"time"
 )
 
 func Test_InMemoryStorage_Get(t *testing.T) {
 	s := NewInMemoryStorage()
-	tn := time.Now()
-	info1, _ := s.Insert(MakeInfo(0, Sent, tn, tn))
-	info2, _ := s.Insert(MakeInfo(0, Failed, tn, tn))
+	info1, _ := s.insert(MakeInfo(0, Sent))
+	info2, _ := s.insert(MakeInfo(0, Failed))
 	badID := info2.ID() + 1
 
-	expectedSent := MakeInfo(info1.ID(), Sent, tn, tn)
-	expectedFailed := MakeInfo(info2.ID(), Failed, tn, tn)
+	expectedSent := MakeInfo(info1.ID(), Sent)
+	expectedFailed := MakeInfo(info2.ID(), Failed)
 
 	tt := []struct {
 		name     string
@@ -44,12 +42,12 @@ func Test_InMemoryStorage_Get(t *testing.T) {
 
 	for _, tst := range tt {
 		t.Run(tst.name, func(t *testing.T) {
-			res, err := s.Get(tst.id)
+			res, err := s.get(tst.id)
 			if tst.wantErr && err == nil {
 				t.Error("expected an error, but found none")
 			} else if !tst.wantErr && err != nil {
 				t.Errorf("expected no error, but found %v", err)
-			} else if !reflect.DeepEqual(tst.expected, res) {
+			} else if tst.expected.Status() != res.Status() {
 				t.Errorf("expected %v, but found %v", tst.expected, res)
 			}
 		})
@@ -58,12 +56,10 @@ func Test_InMemoryStorage_Get(t *testing.T) {
 
 func Test_InMemoryStorage_Update(t *testing.T) {
 	s := NewInMemoryStorage()
-	now := time.Now()
-	future := time.Now().Add(1 * time.Second)
-	info, _ := s.Insert(MakeInfo(0, Sent, now, now))
+	info, _ := s.insert(MakeInfo(0, Sent))
 
-	ue := MakeInfo(info.ID(), Queued, future, future)
-	nue := MakeInfo(info.ID()+1, Queued, future, future)
+	ue := MakeInfo(info.ID(), Queued)
+	nue := MakeInfo(info.ID()+1, Queued)
 	r := ue
 
 	tt := []struct {
@@ -87,7 +83,7 @@ func Test_InMemoryStorage_Update(t *testing.T) {
 	}
 	for _, tst := range tt {
 		t.Run(tst.name, func(t *testing.T) {
-			r, err := s.Update(tst.updateEntity)
+			r, err := s.update(tst.updateEntity)
 			if tst.wantErr && err == nil {
 				t.Error("expected an error, but found none")
 			} else if !tst.wantErr && err != nil {

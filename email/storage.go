@@ -1,10 +1,24 @@
 package email
 
-import "github.com/husainaloos/notfy/status"
+import (
+	"errors"
+
+	"github.com/husainaloos/notfy/status"
+)
+
+var (
+	errStorageNotFound = errors.New("id not found")
+)
+
+type statusEmail struct {
+	Email
+	statusID int
+}
 
 // Storage is an interface for storing emails
 type Storage interface {
-	Insert(Email, status.Info) (Email, error)
+	insert(Email, status.Info) (Email, error)
+	get(int) (statusEmail, error)
 }
 
 type inMemoryStorageData struct {
@@ -20,10 +34,18 @@ type InMemoryStorage struct {
 // NewInMemoryStorage creates a new in-memory implementation
 func NewInMemoryStorage() *InMemoryStorage { return &InMemoryStorage{} }
 
-// Insert new email/info to a slice
-func (s *InMemoryStorage) Insert(e Email, info status.Info) (Email, error) {
+func (s *InMemoryStorage) insert(e Email, info status.Info) (Email, error) {
 	e.SetID(len(s.data) + 1)
 	d := inMemoryStorageData{e, info}
 	s.data = append(s.data, d)
 	return e, nil
+}
+
+func (s *InMemoryStorage) get(id int) (statusEmail, error) {
+	for _, v := range s.data {
+		if v.e.ID() == id {
+			return statusEmail{v.e, v.info.ID()}, nil
+		}
+	}
+	return statusEmail{}, errStorageNotFound
 }

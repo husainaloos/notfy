@@ -55,6 +55,7 @@ type HTTPHandler struct {
 	api *API
 }
 
+// NewHTTPHandler creates new http handler for status
 func NewHTTPHandler(api *API) *HTTPHandler {
 	return &HTTPHandler{api}
 }
@@ -130,7 +131,7 @@ func (h *HTTPHandler) getStatusHandler(w http.ResponseWriter, r *http.Request) {
 	info, err := h.api.Get(id)
 	if err != nil {
 		switch err {
-		case ErrNotFound:
+		case errNotFound:
 			w.WriteHeader(http.StatusNotFound)
 			return
 		default:

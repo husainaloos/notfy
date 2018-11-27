@@ -6,15 +6,15 @@ import (
 )
 
 var (
-	// ErrNotFound is the not found error
-	ErrNotFound = errors.New("record not found")
+	// errNotFound is the not found error
+	errNotFound = errors.New("record not found")
 )
 
 // Storage is an interface for storing Info
 type Storage interface {
-	Insert(Info) (Info, error)
-	Update(Info) (Info, error)
-	Get(id int) (Info, error)
+	insert(Info) (Info, error)
+	update(Info) (Info, error)
+	get(id int) (Info, error)
 }
 
 // InMemoryStorage stores Info in memory
@@ -32,8 +32,7 @@ func NewInMemoryStorage() *InMemoryStorage {
 	}
 }
 
-// Insert new Info in memory
-func (s *InMemoryStorage) Insert(r Info) (Info, error) {
+func (s *InMemoryStorage) insert(r Info) (Info, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -44,8 +43,7 @@ func (s *InMemoryStorage) Insert(r Info) (Info, error) {
 	return r, nil
 }
 
-// Update Info in memory
-func (s *InMemoryStorage) Update(r Info) (Info, error) {
+func (s *InMemoryStorage) update(r Info) (Info, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -57,15 +55,14 @@ func (s *InMemoryStorage) Update(r Info) (Info, error) {
 			return si, nil
 		}
 	}
-	return Info{}, ErrNotFound
+	return Info{}, errNotFound
 }
 
-// Get an Info from memory
-func (s *InMemoryStorage) Get(id int) (Info, error) {
+func (s *InMemoryStorage) get(id int) (Info, error) {
 	for _, r := range s.infos {
 		if r.ID() == id {
 			return r, nil
 		}
 	}
-	return Info{}, ErrNotFound
+	return Info{}, errNotFound
 }

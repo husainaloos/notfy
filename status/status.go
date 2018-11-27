@@ -37,11 +37,21 @@ func (s Info) CreatedAt() time.Time { return s.createdAt }
 func (s Info) LastUpdateAt() time.Time { return s.lastUpdateAt }
 
 // MakeInfo creates a new Info
-func MakeInfo(id int, status SendStatus, createdAt, lastUpdateAt time.Time) Info {
+func MakeInfo(id int, status SendStatus) Info {
 	return Info{
 		id:           id,
 		status:       status,
-		createdAt:    createdAt.UTC(),
-		lastUpdateAt: lastUpdateAt.UTC(),
+		createdAt:    time.Now().UTC(),
+		lastUpdateAt: time.Now().UTC(),
 	}
+}
+
+// SetCreatedAt sets the creation date
+func (s *Info) SetCreatedAt(t time.Time) {
+	s.createdAt = t
+}
+
+// SetLastUpdatedAt sets the last update
+func (s *Info) SetLastUpdatedAt(t time.Time) {
+	s.lastUpdateAt = t
 }

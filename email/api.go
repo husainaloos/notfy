@@ -13,6 +13,7 @@ import (
 // APIInterface is an interface for the API
 type APIInterface interface {
 	Queue(Email) (Email, status.Info, error)
+	Get(id int) (Email, status.Info, error)
 }
 
 // API is the api for dealing with emails
@@ -33,7 +34,7 @@ func (api API) Queue(m Email) (Email, status.Info, error) {
 	if err != nil {
 		return Email{}, status.Info{}, fmt.Errorf("failed to create status: %v", err)
 	}
-	email, err := api.s.Insert(m, info)
+	email, err := api.s.insert(m, info)
 	if err != nil {
 		return Email{}, status.Info{}, fmt.Errorf("failed to insert an email to the storage: %v", err)
 	}
@@ -45,6 +46,19 @@ func (api API) Queue(m Email) (Email, status.Info, error) {
 		return Email{}, status.Info{}, fmt.Errorf("failed to publish the email to the publisher: %v", err)
 	}
 	return email, info, nil
+}
+
+// Get the email info
+func (api API) Get(id int) (Email, status.Info, error) {
+	se, err := api.s.get(id)
+	if err != nil {
+		return Email{}, status.Info{}, fmt.Errorf("cannot get email from storage: %v", err)
+	}
+	info, err := api.statusAPI.Get(se.statusID)
+	if err != nil {
+		return Email{}, status.Info{}, fmt.Errorf("cannot get status of email: %v", err)
+	}
+	return se.Email, info, nil
 }
 
 func (api API) marshal(m Email, i status.Info) ([]byte, error) {
@@ -78,12 +92,22 @@ func (api API) marshal(m Email, i status.Info) ([]byte, error) {
 // MockAPI is a mock of APIInterface
 type MockAPI struct {
 	queue func(Email) (Email, status.Info, error)
+	get   func(int) (Email, status.Info, error)
 }
 
 // NewMockAPI creates a new mock
-func NewMockAPI(queue func(Email) (Email, status.Info, error)) *MockAPI { return &MockAPI{queue} }
+func NewMockAPI(
+	queue func(Email) (Email, status.Info, error),
+	get func(int) (Email, status.Info, error)) *MockAPI {
+	return &MockAPI{queue, get}
+}
 
 // Queue mocked
 func (api *MockAPI) Queue(e Email) (Email, status.Info, error) {
 	return api.queue(e)
+}
+
+// Get mocked
+func (api *MockAPI) Get(id int) (Email, status.Info, error) {
+	return api.get(id)
 }
