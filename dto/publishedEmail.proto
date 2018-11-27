@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package dto;
+
+//go:generate protoc -I=. --go_out=. *.proto
+message PublishedEmail {
+	int64 id = 1;
+	string from = 2;
+	repeated string to = 3;
+	repeated string cc = 4;
+	repeated string bcc = 5;
+	string subject = 6;
+	string body = 7;
+	int64 publishedAt = 8;
+}
