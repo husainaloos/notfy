@@ -19,14 +19,16 @@ type StructuredLogger struct {
 
 func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 	entry := &StructuredLoggerEntry{Logger: logrus.NewEntry(l.Logger)}
-	logFields := logrus.Fields{}
+	reqIDField := logrus.Fields{}
 	if reqID := middleware.GetReqID(r.Context()); reqID != "" {
-		logFields["req_id"] = reqID
+		reqIDField["req_id"] = reqID
 	}
+	entry.Logger = entry.Logger.WithFields(reqIDField)
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
 	}
+	logFields := logrus.Fields{}
 	logFields["http_scheme"] = scheme
 	logFields["http_proto"] = r.Proto
 	logFields["http_method"] = r.Method
@@ -34,8 +36,7 @@ func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 	logFields["user_agent"] = r.UserAgent()
 	logFields["content_length"] = r.ContentLength
 	logFields["uri"] = fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI)
-	entry.Logger = entry.Logger.WithFields(logFields)
-	entry.Logger.Infoln("request started")
+	entry.Logger.WithFields(logFields).Infoln("request started")
 	return entry
 }
 
@@ -68,7 +69,10 @@ func (l *StructuredLoggerEntry) Panic(v interface{}, stack []byte) {
 // with a call to .Print(), .Info(), etc.
 
 func GetLogEntry(r *http.Request) logrus.FieldLogger {
-	entry := middleware.GetLogEntry(r).(*StructuredLoggerEntry)
+	entry, ok := middleware.GetLogEntry(r).(*StructuredLoggerEntry)
+	if !ok {
+		return logrus.New()
+	}
 	return entry.Logger
 }
 

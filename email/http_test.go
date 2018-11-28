@@ -10,51 +10,70 @@ import (
 	"github.com/husainaloos/notfy/status"
 )
 
+type mockAPI struct {
+	queue func(Email) (Email, status.Info, error)
+	get   func(int) (Email, status.Info, error)
+}
+
+func newMockAPI(
+	queue func(Email) (Email, status.Info, error),
+	get func(int) (Email, status.Info, error)) *mockAPI {
+	return &mockAPI{queue, get}
+}
+func (api *mockAPI) Queue(e Email) (Email, status.Info, error) { return api.queue(e) }
+func (api *mockAPI) Get(id int) (Email, status.Info, error)    { return api.get(id) }
+
 func Test_sendEmailHandler(t *testing.T) {
 	passQueue := func(Email) (Email, status.Info, error) { return Email{}, status.Info{}, nil }
 	failQueue := func(Email) (Email, status.Info, error) { return Email{}, status.Info{}, errors.New("queue failed") }
 	passGet := func(int) (Email, status.Info, error) { return Email{}, status.Info{}, nil }
-	t.Run("should return bad request if the body is invalid", func(t *testing.T) {
-		api := NewHTTPHandler(NewMockAPI(passQueue, passGet))
-		w := httptest.NewRecorder()
-		body := strings.NewReader(`{"from" : "bademail.com", "to" : ["friend@gmail.com"]`)
-		r := httptest.NewRequest(http.MethodPost, "http://localhost", body)
-		api.sendEmailHandler(w, r)
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("sendEmailHandler(): expected %d, but got %d", http.StatusBadRequest, w.Code)
-		}
-	})
+	tt := []struct {
+		name           string
+		queuef         func(Email) (Email, status.Info, error)
+		getf           func(int) (Email, status.Info, error)
+		body           string
+		expectedStatus int
+	}{
+		{
+			name:           "should return bad request if the body is invalid",
+			queuef:         passQueue,
+			getf:           passGet,
+			body:           `{"from" : "bademail.com", "to" : ["friend@gmail.com"]`,
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "should return bad request if the body is invalid json",
+			queuef:         passQueue,
+			getf:           passGet,
+			body:           `{"field" : "bad json"`,
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "should return 500 if the API fails",
+			queuef:         failQueue,
+			getf:           passGet,
+			body:           `{"from" : "email@gmail.com", "to" : ["fiend@gmail.com"]}`,
+			expectedStatus: http.StatusInternalServerError,
+		},
+		{
+			name:           "should return 200 if message is valid",
+			queuef:         passQueue,
+			getf:           passGet,
+			body:           `{"from" : "email@gmail.com", "to" : ["fiend@gmail.com"], "cc": null, "bcc": [],  "body" : "body"}`,
+			expectedStatus: http.StatusOK,
+		},
+	}
 
-	t.Run("should return bad request if the body is invalid json", func(t *testing.T) {
-		api := NewHTTPHandler(NewMockAPI(passQueue, passGet))
-		w := httptest.NewRecorder()
-		body := strings.NewReader(`{"field" : "bad json"`)
-		r := httptest.NewRequest(http.MethodPost, "http://localhost", body)
-		api.sendEmailHandler(w, r)
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("sendEmailHandler(): expected %d, but got %d", http.StatusBadRequest, w.Code)
-		}
-	})
-
-	t.Run("should return 500 if the API fails", func(t *testing.T) {
-		api := NewHTTPHandler(NewMockAPI(failQueue, passGet))
-		w := httptest.NewRecorder()
-		body := strings.NewReader(`{"from" : "email@gmail.com", "to" : ["fiend@gmail.com"]}`)
-		r := httptest.NewRequest(http.MethodPost, "http://localhost", body)
-		api.sendEmailHandler(w, r)
-		if w.Code != http.StatusInternalServerError {
-			t.Errorf("sendEmailHandler(): expected %d, but got %d", http.StatusInternalServerError, w.Code)
-		}
-	})
-
-	t.Run("should return 200 if message is valid", func(t *testing.T) {
-		api := NewHTTPHandler(NewMockAPI(passQueue, passGet))
-		w := httptest.NewRecorder()
-		body := strings.NewReader(`{"from" : "email@gmail.com", "to" : ["fiend@gmail.com"], "cc": null, "bcc": [],  "body" : "body"}`)
-		r := httptest.NewRequest(http.MethodPost, "http://localhost", body)
-		api.sendEmailHandler(w, r)
-		if w.Code != http.StatusOK {
-			t.Errorf("sendEmailHandler(): expected %d, but got %d", http.StatusOK, w.Code)
-		}
-	})
+	for _, tst := range tt {
+		t.Run(tst.name, func(t *testing.T) {
+			api := NewHTTPHandler(newMockAPI(tst.queuef, tst.getf))
+			w := httptest.NewRecorder()
+			body := strings.NewReader(tst.body)
+			r := httptest.NewRequest(http.MethodPost, "http://localhost", body)
+			api.sendEmailHandler(w, r)
+			if w.Code != tst.expectedStatus {
+				t.Errorf("sendEmailHandler(): got %d when was expecting %d", w.Code, tst.expectedStatus)
+			}
+		})
+	}
 }

@@ -48,10 +48,10 @@ func MakeInfo(id int, status SendStatus) Info {
 
 // SetCreatedAt sets the creation date
 func (s *Info) SetCreatedAt(t time.Time) {
-	s.createdAt = t
+	s.createdAt = t.UTC()
 }
 
 // SetLastUpdatedAt sets the last update
 func (s *Info) SetLastUpdatedAt(t time.Time) {
-	s.lastUpdateAt = t
+	s.lastUpdateAt = t.UTC()
 }

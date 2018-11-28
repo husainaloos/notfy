@@ -9,7 +9,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	"github.com/husainaloos/notfy/logger"
+	"github.com/husainaloos/notfy/status"
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,7 +29,7 @@ var (
 	errGetEmailFailed     = errModel{"an error has occured", 107}
 )
 
-type emailDto struct {
+type postEmailDto struct {
 	From    string   `json:"from"`
 	To      []string `json:"to"`
 	CC      []string `json:"cc"`
@@ -42,6 +43,17 @@ type emailStatus struct {
 	StatusID  int       `json:"status_id"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type getEmailDto struct {
+	From     string   `json:"from"`
+	To       []string `json:"to"`
+	CC       []string `json:"cc"`
+	BCC      []string `json:"bcc"`
+	Subject  string   `json:"subject"`
+	Body     string   `json:"body"`
+	StatusID int      `json:"status_id"`
+	Status   string   `json:"status"`
 }
 
 // HTTPHandler is the handler for Email
@@ -61,31 +73,36 @@ func (h *HTTPHandler) Route(r chi.Router) {
 }
 
 func (h *HTTPHandler) sendEmailHandler(w http.ResponseWriter, r *http.Request) {
-	reqID := middleware.GetReqID(r.Context())
-	lf := logrus.Fields{"reqID": reqID}
+	log := logger.GetLogEntry(r)
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		h.writeErr(w, errCannotReadBody, http.StatusInternalServerError)
-		logrus.WithFields(lf).Errorf("failed to read request body: %v", err)
+		log.Errorf("failed to read request body: %v", err)
 		return
 	}
 	defer r.Body.Close()
-	var model emailDto
+	var model postEmailDto
 	if err := json.Unmarshal(body, &model); err != nil {
 		h.writeErr(w, errMalformedJSON, http.StatusBadRequest)
+		log.Debugf("failed to unmarshal json: %v", err)
 		return
 	}
 	e, err := New(model.From, model.To, model.CC, model.BCC, model.Subject, model.Body)
 	if err != nil {
 		h.writeErr(w, errBadRequest(err), http.StatusBadRequest)
+		log.Debugf("failed to create email due to validation: %v", err)
 		return
 	}
 	email, info, err := h.emailAPI.Queue(e)
 	if err != nil {
 		h.writeErr(w, errCannotQueue, http.StatusInternalServerError)
-		logrus.WithFields(lf).Errorf("could not queue email: %v", err)
+		log.Errorf("could not queue email: %v", err)
 		return
 	}
+	log.WithFields(logrus.Fields{
+		"email_status":  info.Status().String(),
+		"email_subject": email.Subject(),
+	}).Debugf("email queued")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(emailStatus{
 		ID:        email.ID(),
@@ -96,23 +113,62 @@ func (h *HTTPHandler) sendEmailHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) getEmailHandler(w http.ResponseWriter, r *http.Request) {
-	reqID := middleware.GetReqID(r.Context())
-	lf := logrus.Fields{"reqID": reqID}
+	log := logger.GetLogEntry(r)
 	idStr := chi.URLParam(r, "id")
-	logrus.WithFields(lf).WithFields(logrus.Fields{"idStr": idStr}).Debug("id value from URL")
+	log.WithField("id", idStr).Debug("id value from URL")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		logrus.Debugf("id passed is not a valid integer: %v", err)
+		log.WithField("id", idStr).Debugf("id passed is not a valid integer: %v", err)
 		return
 	}
-	_, _, err = h.emailAPI.Get(id)
+	email, info, err := h.emailAPI.Get(id)
 	if err != nil {
-		h.writeErr(w, errGetEmailFailed, http.StatusInternalServerError)
-		logrus.WithFields(lf).Errorf("failed to retreive email: %v", err)
-		return
+		switch err {
+		case ErrEmailNotFound:
+			w.WriteHeader(http.StatusNotFound)
+			log.WithField("id", id).Debugf("email not found")
+			return
+		default:
+			h.writeErr(w, errGetEmailFailed, http.StatusInternalServerError)
+			log.Errorf("failed to retreive email: %v", err)
+			return
+		}
 	}
-	return
+
+	model := h.buildGetEmailDto(email, info)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(model)
+}
+
+func (h *HTTPHandler) buildGetEmailDto(e Email, i status.Info) getEmailDto {
+	model := getEmailDto{}
+	model.Body = e.Body()
+	model.Subject = e.Subject()
+
+	from := e.From()
+	model.From = from.String()
+
+	tos := []string{}
+	for _, addr := range e.To() {
+		tos = append(tos, addr.String())
+	}
+
+	ccs := []string{}
+	for _, addr := range e.CC() {
+		ccs = append(ccs, addr.String())
+	}
+
+	bccs := []string{}
+	for _, addr := range e.BCC() {
+		bccs = append(bccs, addr.String())
+	}
+	model.To = tos
+	model.CC = ccs
+	model.BCC = bccs
+	model.StatusID = i.ID()
+	model.Status = i.Status().String()
+	return model
 }
 
 func (h *HTTPHandler) writeErr(w http.ResponseWriter, e errModel, status int) {

@@ -1,6 +1,7 @@
 package email
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -9,53 +10,138 @@ import (
 	"github.com/husainaloos/notfy/messaging"
 )
 
+type mockStatusAPI struct {
+	create func(status.SendStatus) (status.Info, error)
+	get    func(int) (status.Info, error)
+}
+
+func newMockStatusAPI(
+	create func(status.SendStatus) (status.Info, error),
+	get func(int) (status.Info, error)) *mockStatusAPI {
+	return &mockStatusAPI{create, get}
+}
+
+func (api *mockStatusAPI) Create(s status.SendStatus) (status.Info, error) { return api.create(s) }
+func (api *mockStatusAPI) Get(id int) (status.Info, error)                 { return api.get(id) }
+
 func Test_QueueEmail(t *testing.T) {
 	passCreate := func(s status.SendStatus) (status.Info, error) { return status.MakeInfo(1, s), nil }
+	failCreate := func(s status.SendStatus) (status.Info, error) {
+		return status.MakeInfo(1, s), errors.New("create status failed")
+	}
 	passGet := func(int) (status.Info, error) { return status.Info{}, nil }
 	email, _ := New("my@gmail.com", []string{"you@gmail.com"}, []string{}, []string{}, "subject", "body")
+	email.SetID(1)
 
-	t.Run("should queue an email in the broker", func(t *testing.T) {
-		broker := messaging.NewInMemoryPublisher()
-		storage := NewInMemoryStorage()
-		statusAPI := status.NewMockAPI(passCreate, passGet)
-		api := NewAPI(broker, storage, statusAPI)
-		e, info, err := api.Queue(email)
-		if err != nil {
-			t.Errorf("expected no error, but got one: %v", err)
-		}
-		if info.Status() != status.Queued {
-			t.Errorf("info.Status() should be %v, but found %v", status.Queued, info.Status())
-		}
-		if e.ID() == 0 {
-			t.Error("expected e.ID() to be greated that 0, but found 0")
-		}
-	})
+	tt := []struct {
+		name          string
+		createf       func(status.SendStatus) (status.Info, error)
+		getf          func(int) (status.Info, error)
+		expectedInfo  status.Info
+		expectedEmail Email
+		wantErr       bool
+	}{
+		{
+			name:          "should queue an email in the broker",
+			createf:       passCreate,
+			getf:          passGet,
+			expectedInfo:  status.MakeInfo(1, status.Queued),
+			expectedEmail: email,
+			wantErr:       false,
+		},
+		{
+			name:          "should return err if creating status fails",
+			createf:       failCreate,
+			getf:          passGet,
+			expectedInfo:  status.Info{},
+			expectedEmail: Email{},
+			wantErr:       true,
+		},
+	}
+	for _, tst := range tt {
+		t.Run(tst.name, func(t *testing.T) {
+			broker := messaging.NewInMemoryPublisher()
+			storage := NewInMemoryStorage()
+			statusAPI := newMockStatusAPI(tst.createf, tst.getf)
+			api := NewAPI(broker, storage, statusAPI)
+			e, info, err := api.Queue(email)
+			if tst.wantErr {
+				if err == nil {
+					t.Errorf("Queue(): got no error, but wanted an error")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("Queue(): got err %v, expected none", err)
+			}
+			if info.ID() != tst.expectedInfo.ID() || info.Status() != tst.expectedInfo.Status() {
+				t.Errorf("Queue(): got info %v, but expected %v", info, tst.expectedInfo)
+			}
+			if !reflect.DeepEqual(e, tst.expectedEmail) {
+				t.Errorf("Queue(): got email %v, but expected %v", e, tst.expectedEmail)
+			}
+		})
+	}
 }
 
 func Test_Get(t *testing.T) {
 	passCreate := func(status.SendStatus) (status.Info, error) { return status.Info{}, nil }
 
-	t.Run("should return email and status", func(t *testing.T) {
-		emailID := 1
-		infoID := 2
-		expEmail, _ := New("my@gmail.com", []string{"you@gmail.com"}, []string{}, []string{}, "subject", "body")
-		expEmail.SetID(1)
-		expInfo := status.MakeInfo(infoID, status.Queued)
-		passGet := func(int) (status.Info, error) { return expInfo, nil }
-		broker := messaging.NewInMemoryPublisher()
-		storage := NewInMemoryStorage()
-		storage.insert(expEmail, expInfo)
-		statusAPI := status.NewMockAPI(passCreate, passGet)
-		api := NewAPI(broker, storage, statusAPI)
-		e, info, err := api.Get(emailID)
-		if err != nil {
-			t.Errorf("expected no error, but got one: %v", err)
-		}
-		if !reflect.DeepEqual(e, expEmail) {
-			t.Errorf("expected email %v, but found email %v", expEmail, e)
-		}
-		if !reflect.DeepEqual(info, expInfo) {
-			t.Errorf("expected info %v, but found info %v", expInfo, info)
-		}
-	})
+	// the setup of the test
+	// ensure that email (with ID=1) is associated with status (with ID=2)
+	emailID := 1
+	email, _ := New("my@gmail.com", []string{"you@gmail.com"}, []string{}, []string{}, "subject", "body")
+	email.SetID(emailID)
+	info := status.MakeInfo(2, status.Queued)
+	storage := NewInMemoryStorage()
+	storage.insert(email, info)
+
+	tt := []struct {
+		name     string
+		createf  func(status.SendStatus) (status.Info, error)
+		getf     func(int) (status.Info, error)
+		emailID  int
+		expInfo  status.Info
+		expEmail Email
+		wantErr  bool
+	}{
+		{
+			name:    "should return email and status",
+			createf: passCreate,
+			getf: func(id int) (status.Info, error) {
+				if id != 2 {
+					return status.Info{}, errors.New("bad id")
+				}
+				return status.MakeInfo(2, status.Queued), nil
+			},
+			emailID:  1,
+			expInfo:  status.MakeInfo(2, status.Queued),
+			expEmail: email,
+			wantErr:  false,
+		},
+	}
+
+	for _, tst := range tt {
+		t.Run(tst.name, func(t *testing.T) {
+			broker := messaging.NewInMemoryPublisher()
+			statusAPI := newMockStatusAPI(tst.createf, tst.getf)
+			api := NewAPI(broker, storage, statusAPI)
+			e, i, err := api.Get(tst.emailID)
+			if tst.wantErr {
+				if err == nil {
+					t.Error("Get(): got no error, but expected on")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("Get(): got %v, but expected no error", err)
+			}
+			if !reflect.DeepEqual(e, tst.expEmail) {
+				t.Errorf("Get(): got email %v, but expected %v", e, tst.expEmail)
+			}
+			if i.ID() != tst.expInfo.ID() || i.Status() != tst.expInfo.Status() {
+				t.Errorf("Get(): got info %v, but expected %v", i, tst.expInfo)
+			}
+		})
+	}
 }
