@@ -13,3 +13,7 @@
 
 # Executables
 restapi
+email-deamon
+
+pgdata
+rmqdata

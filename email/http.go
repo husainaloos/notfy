@@ -76,26 +76,26 @@ func (h *HTTPHandler) sendEmailHandler(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogEntry(r)
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		h.writeErr(w, errCannotReadBody, http.StatusInternalServerError)
+		h.writeErr(w, r, errCannotReadBody, http.StatusInternalServerError)
 		log.Errorf("failed to read request body: %v", err)
 		return
 	}
 	defer r.Body.Close()
 	var model postEmailDto
 	if err := json.Unmarshal(body, &model); err != nil {
-		h.writeErr(w, errMalformedJSON, http.StatusBadRequest)
+		h.writeErr(w, r, errMalformedJSON, http.StatusBadRequest)
 		log.Debugf("failed to unmarshal json: %v", err)
 		return
 	}
 	e, err := New(model.From, model.To, model.CC, model.BCC, model.Subject, model.Body)
 	if err != nil {
-		h.writeErr(w, errBadRequest(err), http.StatusBadRequest)
+		h.writeErr(w, r, errBadRequest(err), http.StatusBadRequest)
 		log.Debugf("failed to create email due to validation: %v", err)
 		return
 	}
 	email, info, err := h.emailAPI.Queue(e)
 	if err != nil {
-		h.writeErr(w, errCannotQueue, http.StatusInternalServerError)
+		h.writeErr(w, r, errCannotQueue, http.StatusInternalServerError)
 		log.Errorf("could not queue email: %v", err)
 		return
 	}
@@ -130,7 +130,7 @@ func (h *HTTPHandler) getEmailHandler(w http.ResponseWriter, r *http.Request) {
 			log.WithField("id", id).Debugf("email not found")
 			return
 		default:
-			h.writeErr(w, errGetEmailFailed, http.StatusInternalServerError)
+			h.writeErr(w, r, errGetEmailFailed, http.StatusInternalServerError)
 			log.Errorf("failed to retreive email: %v", err)
 			return
 		}
@@ -171,11 +171,12 @@ func (h *HTTPHandler) buildGetEmailDto(e Email, i status.Info) getEmailDto {
 	return model
 }
 
-func (h *HTTPHandler) writeErr(w http.ResponseWriter, e errModel, status int) {
+func (h *HTTPHandler) writeErr(w http.ResponseWriter, r *http.Request, e errModel, status int) {
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(e); err != nil {
+		log := logger.GetLogEntry(r)
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to encode response: %v", err)
+		log.Errorf("failed to encode response: %v", err)
 		return
 	}
 }

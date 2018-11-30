@@ -6,8 +6,7 @@ import (
 )
 
 var (
-	// errNotFound is the not found error
-	errNotFound = errors.New("record not found")
+	errStorageNotFound = errors.New("record not found in storage")
 )
 
 // Storage is an interface for storing Info
@@ -55,7 +54,7 @@ func (s *InMemoryStorage) update(r Info) (Info, error) {
 			return si, nil
 		}
 	}
-	return Info{}, errNotFound
+	return Info{}, errStorageNotFound
 }
 
 func (s *InMemoryStorage) get(id int) (Info, error) {
@@ -64,5 +63,5 @@ func (s *InMemoryStorage) get(id int) (Info, error) {
 			return r, nil
 		}
 	}
-	return Info{}, errNotFound
+	return Info{}, errStorageNotFound
 }

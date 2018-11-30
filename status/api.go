@@ -1,12 +1,14 @@
 package status
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
-// APIInterface is the interface for the API
-type APIInterface interface {
-	Create(SendStatus) (Info, error)
-	Get(id int) (Info, error)
-}
+var (
+	// ErrStatusNotFound is the error used when the status is not found when creating the status
+	ErrStatusNotFound = errors.New("status not found")
+)
 
 // API is the api for dealing with status
 type API struct {
@@ -26,26 +28,15 @@ func (api *API) Create(s SendStatus) (Info, error) {
 
 // Get status from repository
 func (api *API) Get(id int) (Info, error) {
-	return api.s.get(id)
-}
+	res, err := api.s.get(id)
+	if err != nil {
+		switch err {
+		case errStorageNotFound:
+			return res, ErrStatusNotFound
+		default:
+			return res, err
+		}
+	}
+	return res, nil
 
-// MockAPI is a mock of the API
-type MockAPI struct {
-	create func(SendStatus) (Info, error)
-	get    func(int) (Info, error)
-}
-
-// NewMockAPI creates a new mock
-func NewMockAPI(create func(SendStatus) (Info, error), get func(int) (Info, error)) *MockAPI {
-	return &MockAPI{create, get}
-}
-
-// Create mocked
-func (api *MockAPI) Create(s SendStatus) (Info, error) {
-	return api.create(s)
-}
-
-// Get mocked
-func (api *MockAPI) Get(id int) (Info, error) {
-	return api.get(id)
 }

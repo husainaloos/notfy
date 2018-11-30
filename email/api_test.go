@@ -60,7 +60,7 @@ func Test_QueueEmail(t *testing.T) {
 	}
 	for _, tst := range tt {
 		t.Run(tst.name, func(t *testing.T) {
-			broker := messaging.NewInMemoryPublisher()
+			broker := messaging.NewInMemoryBroker()
 			storage := NewInMemoryStorage()
 			statusAPI := newMockStatusAPI(tst.createf, tst.getf)
 			api := NewAPI(broker, storage, statusAPI)
@@ -123,7 +123,7 @@ func Test_Get(t *testing.T) {
 
 	for _, tst := range tt {
 		t.Run(tst.name, func(t *testing.T) {
-			broker := messaging.NewInMemoryPublisher()
+			broker := messaging.NewInMemoryBroker()
 			statusAPI := newMockStatusAPI(tst.createf, tst.getf)
 			api := NewAPI(broker, storage, statusAPI)
 			e, i, err := api.Get(tst.emailID)

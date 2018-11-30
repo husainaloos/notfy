@@ -1,0 +1,27 @@
+version: '3'
+services:
+        db:
+                image: postgres
+                ports:
+                        - "5432:5432"
+                environment: 
+                        - POSTGRES_USER=postgres
+                        - POSTGRES_PASSWORD=postgres
+                volumes:
+                        - ./pgdata:/var/lib/postgresql/data
+        db_ui:
+                image: dpage/pgadmin4
+                environment:
+                        - PGADMIN_DEFAULT_EMAIL=me@me.com
+                        - PGADMIN_DEFAULT_PASSWORD=password
+                ports:
+                        - "8081:80"
+        rabbitmq:
+                image: rabbitmq:3-management
+                ports:
+                        - "5672:5672"
+                        - "8080:15672"
+                volumes:
+                        - ./rmqdata:/var/lib/rabbitmq
+networks:
+        default:

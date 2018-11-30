@@ -15,26 +15,6 @@ func (n NilPublisher) Publish([]byte) error { return nil }
 // Close does nothing
 func (n NilPublisher) Close() error { return nil }
 
-// InMemoryPublisher is an in-memory channel that implements the publisher interface
-type InMemoryPublisher struct{ C chan []byte }
-
-// NewInMemoryPublisher creates a new in-memory publisher
-func NewInMemoryPublisher() *InMemoryPublisher {
-	return &InMemoryPublisher{make(chan []byte, 100000)}
-}
-
-// Publish to the in-memory channel
-func (b *InMemoryPublisher) Publish(bb []byte) error {
-	b.C <- bb
-	return nil
-}
-
-// Close the in-memory channel
-func (b *InMemoryPublisher) Close() error {
-	close(b.C)
-	return nil
-}
-
 // ErrPublisher is an implementation of the publisher that returns an error if the error is set
 type ErrPublisher struct{ Err error }
 
