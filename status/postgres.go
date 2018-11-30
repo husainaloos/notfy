@@ -24,14 +24,11 @@ func NewPostgresStorage(connStr string) (*PostgresStorage, error) {
 }
 
 func (p *PostgresStorage) insert(info Info) (Info, error) {
-	result, err := p.db.Exec("insert into notfy.status (code, created_at, last_update_at) values (?, ?, ?)",
-		info.Status().String(), info.CreatedAt(), info.LastUpdateAt())
-	if err != nil {
+	var id int
+	if err := p.db.QueryRow(
+		"INSERT INTO notfy.status (code, created_at, last_update_at) VALUES ($1, $2, $3) RETURNING status_id;",
+		info.Status(), info.CreatedAt(), info.LastUpdateAt()).Scan(&id); err != nil {
 		return Info{}, err
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return Info{}, fmt.Errorf("failed to get last inserted id: %v", err)
 	}
 	i := MakeInfo(int(id), info.Status())
 	i.SetCreatedAt(info.CreatedAt())
@@ -40,8 +37,8 @@ func (p *PostgresStorage) insert(info Info) (Info, error) {
 }
 
 func (p *PostgresStorage) update(info Info) (Info, error) {
-	_, err := p.db.Exec("update notfy.status set code=?, created_at=?, last_update_at=? where status_id = ?",
-		info.Status().String(), info.CreatedAt(), info.LastUpdateAt(), info.ID())
+	_, err := p.db.Exec("UPDATE notfy.status SET code=$1, created_at=$2, last_update_at=$3 WHERE status_id = $4;",
+		info.Status(), info.CreatedAt(), info.LastUpdateAt(), info.ID())
 	if err != nil {
 		return Info{}, fmt.Errorf("failed to update: %v", err)
 	}
@@ -50,7 +47,7 @@ func (p *PostgresStorage) update(info Info) (Info, error) {
 }
 
 func (p *PostgresStorage) get(id int) (Info, error) {
-	rows, err := p.db.Query("select status_id, code, created_at, last_update_at from status where status_id = ?", id)
+	rows, err := p.db.Query("SELECT status_id, code, created_at, last_update_at FROM notfy.status WHERE status_id = $1;", id)
 	if err != nil {
 		return Info{}, fmt.Errorf("cannot get from db: %v", err)
 	}

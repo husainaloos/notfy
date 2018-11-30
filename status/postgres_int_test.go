@@ -57,7 +57,41 @@ func Test_InsertAndGet(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to get: %v", err)
 	}
-	if !reflect.DeepEqual(got, ret) {
-		t.Errorf("got %v, but inserted %v", got, ret)
+	if !reflect.DeepEqual(got.ID(), ret.ID()) {
+		t.Errorf("got id %d, but inserted %d", got.ID(), ret.ID())
+	}
+	if !reflect.DeepEqual(got.Status(), ret.Status()) {
+		t.Errorf("got status %v, but inserted %v", got.Status(), ret.Status())
+	}
+	if got.CreatedAt().Sub(ret.CreatedAt()) > 1*time.Second {
+		t.Errorf("got created_at %v, but inserted %v", got.CreatedAt(), ret.CreatedAt())
+	}
+	if got.LastUpdateAt().Sub(ret.LastUpdateAt()) > 1*time.Second {
+		t.Errorf("got last_update_at %v, but inserted %v", got.LastUpdateAt(), ret.LastUpdateAt())
+	}
+
+}
+
+func Test_InsertAndUpdate(t *testing.T) {
+	connStr := "postgres://postgres:postgres@localhost:5432/notfy_db?sslmode=disable"
+	db, err := NewPostgresStorage(connStr)
+	if err != nil {
+		t.Errorf("cannot create storage: %v", err)
+	}
+
+	now := time.Now()
+	i := MakeInfo(0, Queued)
+	i.SetCreatedAt(now)
+	i.SetLastUpdatedAt(now)
+	ret, _ := db.insert(i)
+	ui := MakeInfo(ret.ID(), Sent)
+	_, err = db.update(ui)
+	if err != nil {
+		t.Errorf("failed to update: %v", err)
+	}
+
+	got, _ := db.get(ret.ID())
+	if !reflect.DeepEqual(got.Status(), ui.Status()) {
+		t.Errorf("got status %v, but expected %v", got.Status(), ui.Status())
 	}
 }
