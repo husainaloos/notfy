@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -17,14 +18,14 @@ var (
 
 // APIInterface is an interface for the API
 type APIInterface interface {
-	Queue(Email) (Email, status.Info, error)
-	Get(id int) (Email, status.Info, error)
+	Queue(context.Context, Email) (Email, status.Info, error)
+	Get(ctx context.Context, id int) (Email, status.Info, error)
 }
 
 // StatusAPI is an interface for the status api
 type StatusAPI interface {
-	Create(status.SendStatus) (status.Info, error)
-	Get(id int) (status.Info, error)
+	Create(context.Context, status.SendStatus) (status.Info, error)
+	Get(ctx context.Context, id int) (status.Info, error)
 }
 
 // API is the api for dealing with emails
@@ -40,8 +41,8 @@ func NewAPI(p messaging.Publisher, s Storage, statusAPI StatusAPI) *API {
 }
 
 // Queue an email to be sent
-func (api API) Queue(m Email) (Email, status.Info, error) {
-	info, err := api.statusAPI.Create(status.Queued)
+func (api API) Queue(ctx context.Context, m Email) (Email, status.Info, error) {
+	info, err := api.statusAPI.Create(ctx, status.Queued)
 	if err != nil {
 		return Email{}, status.Info{}, fmt.Errorf("failed to create status: %v", err)
 	}
@@ -60,7 +61,7 @@ func (api API) Queue(m Email) (Email, status.Info, error) {
 }
 
 // Get the email info
-func (api API) Get(id int) (Email, status.Info, error) {
+func (api API) Get(ctx context.Context, id int) (Email, status.Info, error) {
 	se, err := api.s.get(id)
 	if err != nil {
 		if err == errStorageNotFound {
@@ -68,7 +69,7 @@ func (api API) Get(id int) (Email, status.Info, error) {
 		}
 		return Email{}, status.Info{}, fmt.Errorf("cannot get email from storage: %v", err)
 	}
-	info, err := api.statusAPI.Get(se.statusID)
+	info, err := api.statusAPI.Get(ctx, se.statusID)
 	if err != nil {
 		return Email{}, status.Info{}, fmt.Errorf("cannot get status of email: %v", err)
 	}

@@ -122,7 +122,7 @@ func TestNewEmail(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := New(tt.args.from, tt.args.to, tt.args.cc, tt.args.bcc, tt.args.subject, tt.args.body)
+			got, err := New(0, tt.args.from, tt.args.to, tt.args.cc, tt.args.bcc, tt.args.subject, tt.args.body)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewEmail() error = %v, wantErr %v", err, tt.wantErr)
 				return

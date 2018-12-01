@@ -1,6 +1,7 @@
 package status
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -34,13 +35,17 @@ type getModel struct {
 	LastUpdateAt time.Time `json:"last_update_at"`
 }
 
+type APIInterface interface {
+	Get(ctx context.Context, id int) (Info, error)
+}
+
 // HTTPHandler is the http handler for REST calls to the status API
 type HTTPHandler struct {
-	api *API
+	api APIInterface
 }
 
 // NewHTTPHandler creates new http handler for status
-func NewHTTPHandler(api *API) *HTTPHandler {
+func NewHTTPHandler(api APIInterface) *HTTPHandler {
 	return &HTTPHandler{api}
 }
 
@@ -59,7 +64,7 @@ func (h *HTTPHandler) getStatusHandler(w http.ResponseWriter, r *http.Request) {
 		log.WithField("id", idStr).Debugf("id passed is not a valid integer: %v", err)
 		return
 	}
-	info, err := h.api.Get(id)
+	info, err := h.api.Get(r.Context(), id)
 	if err != nil {
 		switch err {
 		case ErrStatusNotFound:

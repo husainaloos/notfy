@@ -1,9 +1,11 @@
 package email
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/husainaloos/notfy/status"
 
@@ -21,17 +23,20 @@ func newMockStatusAPI(
 	return &mockStatusAPI{create, get}
 }
 
-func (api *mockStatusAPI) Create(s status.SendStatus) (status.Info, error) { return api.create(s) }
-func (api *mockStatusAPI) Get(id int) (status.Info, error)                 { return api.get(id) }
+func (api *mockStatusAPI) Create(ctx context.Context, s status.SendStatus) (status.Info, error) {
+	return api.create(s)
+}
+func (api *mockStatusAPI) Get(ctx context.Context, id int) (status.Info, error) { return api.get(id) }
 
-func Test_QueueEmail(t *testing.T) {
-	passCreate := func(s status.SendStatus) (status.Info, error) { return status.MakeInfo(1, s), nil }
+func TestQueueEmail(t *testing.T) {
+	passCreate := func(s status.SendStatus) (status.Info, error) {
+		return status.MakeInfo(1, s, time.Now(), time.Now()), nil
+	}
 	failCreate := func(s status.SendStatus) (status.Info, error) {
-		return status.MakeInfo(1, s), errors.New("create status failed")
+		return status.MakeInfo(1, s, time.Now(), time.Now()), errors.New("create status failed")
 	}
 	passGet := func(int) (status.Info, error) { return status.Info{}, nil }
-	email, _ := New("my@gmail.com", []string{"you@gmail.com"}, []string{}, []string{}, "subject", "body")
-	email.SetID(1)
+	email, _ := New(0, "my@gmail.com", []string{"you@gmail.com"}, []string{}, []string{}, "subject", "body")
 
 	tt := []struct {
 		name          string
@@ -45,7 +50,7 @@ func Test_QueueEmail(t *testing.T) {
 			name:          "should queue an email in the broker",
 			createf:       passCreate,
 			getf:          passGet,
-			expectedInfo:  status.MakeInfo(1, status.Queued),
+			expectedInfo:  status.MakeInfo(1, status.Queued, time.Now(), time.Now()),
 			expectedEmail: email,
 			wantErr:       false,
 		},
@@ -64,7 +69,7 @@ func Test_QueueEmail(t *testing.T) {
 			storage := NewInMemoryStorage()
 			statusAPI := newMockStatusAPI(tst.createf, tst.getf)
 			api := NewAPI(broker, storage, statusAPI)
-			e, info, err := api.Queue(email)
+			e, info, err := api.Queue(context.Background(), email)
 			if tst.wantErr {
 				if err == nil {
 					t.Errorf("Queue(): got no error, but wanted an error")
@@ -84,15 +89,13 @@ func Test_QueueEmail(t *testing.T) {
 	}
 }
 
-func Test_Get(t *testing.T) {
+func TestGet(t *testing.T) {
 	passCreate := func(status.SendStatus) (status.Info, error) { return status.Info{}, nil }
 
 	// the setup of the test
 	// ensure that email (with ID=1) is associated with status (with ID=2)
-	emailID := 1
-	email, _ := New("my@gmail.com", []string{"you@gmail.com"}, []string{}, []string{}, "subject", "body")
-	email.SetID(emailID)
-	info := status.MakeInfo(2, status.Queued)
+	email, _ := New(0, "my@gmail.com", []string{"you@gmail.com"}, []string{}, []string{}, "subject", "body")
+	info := status.MakeInfo(2, status.Queued, time.Now(), time.Now())
 	storage := NewInMemoryStorage()
 	storage.insert(email, info)
 
@@ -112,10 +115,10 @@ func Test_Get(t *testing.T) {
 				if id != 2 {
 					return status.Info{}, errors.New("bad id")
 				}
-				return status.MakeInfo(2, status.Queued), nil
+				return status.MakeInfo(2, status.Queued, time.Now(), time.Now()), nil
 			},
 			emailID:  1,
-			expInfo:  status.MakeInfo(2, status.Queued),
+			expInfo:  status.MakeInfo(2, status.Queued, time.Now(), time.Now()),
 			expEmail: email,
 			wantErr:  false,
 		},
@@ -126,7 +129,7 @@ func Test_Get(t *testing.T) {
 			broker := messaging.NewInMemoryBroker()
 			statusAPI := newMockStatusAPI(tst.createf, tst.getf)
 			api := NewAPI(broker, storage, statusAPI)
-			e, i, err := api.Get(tst.emailID)
+			e, i, err := api.Get(context.Background(), tst.emailID)
 			if tst.wantErr {
 				if err == nil {
 					t.Error("Get(): got no error, but expected on")

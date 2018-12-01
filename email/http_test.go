@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -20,10 +21,12 @@ func newMockAPI(
 	get func(int) (Email, status.Info, error)) *mockAPI {
 	return &mockAPI{queue, get}
 }
-func (api *mockAPI) Queue(e Email) (Email, status.Info, error) { return api.queue(e) }
-func (api *mockAPI) Get(id int) (Email, status.Info, error)    { return api.get(id) }
+func (api *mockAPI) Queue(ctx context.Context, e Email) (Email, status.Info, error) {
+	return api.queue(e)
+}
+func (api *mockAPI) Get(ctx context.Context, id int) (Email, status.Info, error) { return api.get(id) }
 
-func Test_sendEmailHandler(t *testing.T) {
+func TestPostEmailHandler(t *testing.T) {
 	passQueue := func(Email) (Email, status.Info, error) { return Email{}, status.Info{}, nil }
 	failQueue := func(Email) (Email, status.Info, error) { return Email{}, status.Info{}, errors.New("queue failed") }
 	passGet := func(int) (Email, status.Info, error) { return Email{}, status.Info{}, nil }

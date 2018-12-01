@@ -1,6 +1,7 @@
 package status
 
 import (
+	"context"
 	"errors"
 	"time"
 )
@@ -19,16 +20,14 @@ type API struct {
 func NewAPI(s Storage) *API { return &API{s} }
 
 // Create status in repository
-func (api *API) Create(s SendStatus) (Info, error) {
-	i := MakeInfo(0, s)
-	i.SetCreatedAt(time.Now())
-	i.SetLastUpdatedAt(time.Now())
-	return api.s.insert(i)
+func (api *API) Create(ctx context.Context, s SendStatus) (Info, error) {
+	i := MakeInfo(0, s, time.Now(), time.Now())
+	return api.s.insert(ctx, i)
 }
 
 // Get status from repository
-func (api *API) Get(id int) (Info, error) {
-	res, err := api.s.get(id)
+func (api *API) Get(ctx context.Context, id int) (Info, error) {
+	res, err := api.s.get(ctx, id)
 	if err != nil {
 		switch err {
 		case errStorageNotFound:

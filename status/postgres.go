@@ -1,6 +1,7 @@
 package status
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -23,20 +24,18 @@ func NewPostgresStorage(connStr string) (*PostgresStorage, error) {
 	return &PostgresStorage{db}, nil
 }
 
-func (p *PostgresStorage) insert(info Info) (Info, error) {
+func (p *PostgresStorage) insert(ctx context.Context, info Info) (Info, error) {
 	var id int
 	if err := p.db.QueryRow(
 		"INSERT INTO notfy.status (code, created_at, last_update_at) VALUES ($1, $2, $3) RETURNING status_id;",
 		info.Status(), info.CreatedAt(), info.LastUpdateAt()).Scan(&id); err != nil {
 		return Info{}, err
 	}
-	i := MakeInfo(int(id), info.Status())
-	i.SetCreatedAt(info.CreatedAt())
-	i.SetLastUpdatedAt(info.LastUpdateAt())
+	i := MakeInfo(int(id), info.Status(), info.CreatedAt(), info.LastUpdateAt())
 	return i, nil
 }
 
-func (p *PostgresStorage) update(info Info) (Info, error) {
+func (p *PostgresStorage) update(ctx context.Context, info Info) (Info, error) {
 	_, err := p.db.Exec("UPDATE notfy.status SET code=$1, created_at=$2, last_update_at=$3 WHERE status_id = $4;",
 		info.Status(), info.CreatedAt(), info.LastUpdateAt(), info.ID())
 	if err != nil {
@@ -46,7 +45,7 @@ func (p *PostgresStorage) update(info Info) (Info, error) {
 
 }
 
-func (p *PostgresStorage) get(id int) (Info, error) {
+func (p *PostgresStorage) get(ctx context.Context, id int) (Info, error) {
 	rows, err := p.db.Query("SELECT status_id, code, created_at, last_update_at FROM notfy.status WHERE status_id = $1;", id)
 	if err != nil {
 		return Info{}, fmt.Errorf("cannot get from db: %v", err)
@@ -62,9 +61,7 @@ func (p *PostgresStorage) get(id int) (Info, error) {
 		if err := rows.Scan(&id, &code, &createdAt, &lastUpdateAt); err != nil {
 			return Info{}, fmt.Errorf("cannot read result: %v", err)
 		}
-		i := MakeInfo(id, SendStatus(code))
-		i.SetCreatedAt(createdAt)
-		i.SetLastUpdatedAt(lastUpdateAt)
+		i := MakeInfo(id, SendStatus(code), createdAt, lastUpdateAt)
 		return i, nil
 	}
 

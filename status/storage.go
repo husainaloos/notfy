@@ -1,6 +1,7 @@
 package status
 
 import (
+	"context"
 	"errors"
 	"sync"
 )
@@ -11,9 +12,9 @@ var (
 
 // Storage is an interface for storing Info
 type Storage interface {
-	insert(Info) (Info, error)
-	update(Info) (Info, error)
-	get(id int) (Info, error)
+	insert(context.Context, Info) (Info, error)
+	update(context.Context, Info) (Info, error)
+	get(ctx context.Context, id int) (Info, error)
 }
 
 // InMemoryStorage stores Info in memory
@@ -31,7 +32,7 @@ func NewInMemoryStorage() *InMemoryStorage {
 	}
 }
 
-func (s *InMemoryStorage) insert(r Info) (Info, error) {
+func (s *InMemoryStorage) insert(ctx context.Context, r Info) (Info, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -42,7 +43,7 @@ func (s *InMemoryStorage) insert(r Info) (Info, error) {
 	return r, nil
 }
 
-func (s *InMemoryStorage) update(r Info) (Info, error) {
+func (s *InMemoryStorage) update(ctx context.Context, r Info) (Info, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -57,7 +58,7 @@ func (s *InMemoryStorage) update(r Info) (Info, error) {
 	return Info{}, errStorageNotFound
 }
 
-func (s *InMemoryStorage) get(id int) (Info, error) {
+func (s *InMemoryStorage) get(ctx context.Context, id int) (Info, error) {
 	for _, r := range s.infos {
 		if r.ID() == id {
 			return r, nil

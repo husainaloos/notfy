@@ -1,18 +1,22 @@
 package status
 
 import (
+	"context"
 	"reflect"
 	"testing"
+	"time"
 )
 
-func Test_InMemoryStorage_Get(t *testing.T) {
+func TestInMemoryStorageGet(t *testing.T) {
 	s := NewInMemoryStorage()
-	info1, _ := s.insert(MakeInfo(0, Sent))
-	info2, _ := s.insert(MakeInfo(0, Failed))
+	ctx := context.Background()
+	now := time.Now()
+	info1, _ := s.insert(ctx, MakeInfo(0, Sent, now, now))
+	info2, _ := s.insert(ctx, MakeInfo(0, Failed, now, now))
 	badID := info2.ID() + 1
 
-	expectedSent := MakeInfo(info1.ID(), Sent)
-	expectedFailed := MakeInfo(info2.ID(), Failed)
+	expectedSent := MakeInfo(info1.ID(), Sent, now, now)
+	expectedFailed := MakeInfo(info2.ID(), Failed, now, now)
 
 	tt := []struct {
 		name     string
@@ -42,7 +46,8 @@ func Test_InMemoryStorage_Get(t *testing.T) {
 
 	for _, tst := range tt {
 		t.Run(tst.name, func(t *testing.T) {
-			res, err := s.get(tst.id)
+			ctx := context.Background()
+			res, err := s.get(ctx, tst.id)
 			if tst.wantErr && err == nil {
 				t.Error("expected an error, but found none")
 			} else if !tst.wantErr && err != nil {
@@ -54,12 +59,14 @@ func Test_InMemoryStorage_Get(t *testing.T) {
 	}
 }
 
-func Test_InMemoryStorage_Update(t *testing.T) {
+func TestInMemoryStorageUpdate(t *testing.T) {
 	s := NewInMemoryStorage()
-	info, _ := s.insert(MakeInfo(0, Sent))
+	ctx := context.Background()
+	now := time.Now()
+	info, _ := s.insert(ctx, MakeInfo(0, Sent, now, now))
 
-	ue := MakeInfo(info.ID(), Queued)
-	nue := MakeInfo(info.ID()+1, Queued)
+	ue := MakeInfo(info.ID(), Queued, now, now)
+	nue := MakeInfo(info.ID()+1, Queued, now, now)
 	r := ue
 
 	tt := []struct {
@@ -83,7 +90,8 @@ func Test_InMemoryStorage_Update(t *testing.T) {
 	}
 	for _, tst := range tt {
 		t.Run(tst.name, func(t *testing.T) {
-			r, err := s.update(tst.updateEntity)
+			ctx := context.Background()
+			r, err := s.update(ctx, tst.updateEntity)
 			if tst.wantErr && err == nil {
 				t.Error("expected an error, but found none")
 			} else if !tst.wantErr && err != nil {

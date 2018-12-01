@@ -9,13 +9,12 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi"
 )
 
-func Test_Get(t *testing.T) {
-	storage := NewInMemoryStorage()
-	_, _ = storage.insert(MakeInfo(1, Queued))
+func TestGet(t *testing.T) {
 	tt := []struct {
 		name      string
 		id        int
@@ -41,6 +40,11 @@ func Test_Get(t *testing.T) {
 
 	for _, tst := range tt {
 		t.Run(tst.name, func(t *testing.T) {
+			// insert a status
+			storage := NewInMemoryStorage()
+			ctx := context.Background()
+			_, _ = storage.insert(ctx, MakeInfo(1, Queued, time.Now(), time.Now()))
+
 			api := NewAPI(storage)
 			h := NewHTTPHandler(api)
 			w := httptest.NewRecorder()
@@ -63,5 +67,4 @@ func Test_Get(t *testing.T) {
 			}
 		})
 	}
-
 }

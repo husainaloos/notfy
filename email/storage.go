@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	errStorageNotFound = errors.New("id not found")
+	errStorageNotFound = errors.New("item not found")
 )
 
 type statusEmail struct {
@@ -35,7 +35,6 @@ type InMemoryStorage struct {
 func NewInMemoryStorage() *InMemoryStorage { return &InMemoryStorage{} }
 
 func (s *InMemoryStorage) insert(e Email, info status.Info) (Email, error) {
-	e.SetID(len(s.data) + 1)
 	d := inMemoryStorageData{e, info}
 	s.data = append(s.data, d)
 	return e, nil

@@ -7,18 +7,14 @@ import (
 
 // Email is the email struct
 type Email struct {
-	id      int
-	from    *mail.Address
-	to      []*mail.Address
-	cc      []*mail.Address
-	bcc     []*mail.Address
-	subject string
-	body    string
-}
-
-// SetID sets the ID of the email
-func (m *Email) SetID(id int) {
-	m.id = id
+	id            int
+	from          *mail.Address
+	to            []*mail.Address
+	cc            []*mail.Address
+	bcc           []*mail.Address
+	subject       string
+	body          string
+	statusHistory StatusHistory
 }
 
 // ID gets the id of the email
@@ -66,8 +62,13 @@ func (m Email) Body() string {
 	return m.body
 }
 
+// AddStatusEvent adds an event to the email
+func (m *Email) AddStatusEvent(se StatusEvent) {
+	m.statusHistory = append(m.statusHistory, se)
+}
+
 // New creates an email
-func New(from string, to, cc, bcc []string, subject, body string) (Email, error) {
+func New(id int, from string, to, cc, bcc []string, subject, body string) (Email, error) {
 	if from == "" {
 		return Email{}, errors.New("from cannot be empty")
 	}
@@ -99,7 +100,7 @@ func New(from string, to, cc, bcc []string, subject, body string) (Email, error)
 	if err != nil {
 		return Email{}, err
 	}
-	return Email{0, f, tos, ccs, bccs, subject, body}, nil
+	return Email{id, f, tos, ccs, bccs, subject, body, make(StatusHistory, 0)}, nil
 }
 
 func parseAddList(addrs []string) ([]*mail.Address, error) {

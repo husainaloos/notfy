@@ -87,13 +87,13 @@ func (h *HTTPHandler) sendEmailHandler(w http.ResponseWriter, r *http.Request) {
 		log.Debugf("failed to unmarshal json: %v", err)
 		return
 	}
-	e, err := New(model.From, model.To, model.CC, model.BCC, model.Subject, model.Body)
+	e, err := New(0, model.From, model.To, model.CC, model.BCC, model.Subject, model.Body)
 	if err != nil {
 		h.writeErr(w, r, errBadRequest(err), http.StatusBadRequest)
 		log.Debugf("failed to create email due to validation: %v", err)
 		return
 	}
-	email, info, err := h.emailAPI.Queue(e)
+	email, info, err := h.emailAPI.Queue(r.Context(), e)
 	if err != nil {
 		h.writeErr(w, r, errCannotQueue, http.StatusInternalServerError)
 		log.Errorf("could not queue email: %v", err)
@@ -122,7 +122,7 @@ func (h *HTTPHandler) getEmailHandler(w http.ResponseWriter, r *http.Request) {
 		log.WithField("id", idStr).Debugf("id passed is not a valid integer: %v", err)
 		return
 	}
-	email, info, err := h.emailAPI.Get(id)
+	email, info, err := h.emailAPI.Get(r.Context(), id)
 	if err != nil {
 		switch err {
 		case ErrEmailNotFound:
