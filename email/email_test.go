@@ -1,31 +1,34 @@
 package email
 
 import (
+	"fmt"
 	"net/mail"
 	"reflect"
 	"testing"
 )
 
 func TestNewEmail(t *testing.T) {
-	addr1, _ := mail.ParseAddress("email1@gmail.com")
-	namedAddr1, _ := mail.ParseAddress("user<email1@gmail.com>")
-	addr2, _ := mail.ParseAddress("email2@gmail.com")
-	addr, _ := mail.ParseAddress("email@gmail.com")
+	jonathan, _ := mail.ParseAddress("jonathan@example.com")
+	randy, _ := mail.ParseAddress("randy@example.com")
+	sam, _ := mail.ParseAddress("sam@example.com")
+	jim, _ := mail.ParseAddress("jim@example.com")
 	unnamedEmail := Email{
-		from:    addr,
-		to:      []*mail.Address{addr1, addr2},
-		cc:      []*mail.Address{addr1, addr2},
-		bcc:     []*mail.Address{addr1, addr2},
-		subject: "subject",
-		body:    "body",
+		from:          sam,
+		to:            []*mail.Address{jonathan, randy},
+		cc:            []*mail.Address{jonathan, randy},
+		bcc:           []*mail.Address{jonathan, randy},
+		subject:       "subject",
+		body:          "body",
+		statusHistory: make(StatusHistory, 0),
 	}
 	namedEmail := Email{
-		from:    addr,
-		to:      []*mail.Address{namedAddr1, addr2},
-		cc:      []*mail.Address{namedAddr1, addr2},
-		bcc:     []*mail.Address{namedAddr1, addr2},
-		subject: "subject",
-		body:    "body",
+		from:          sam,
+		to:            []*mail.Address{jim, randy},
+		cc:            []*mail.Address{jim, randy},
+		bcc:           []*mail.Address{jim, randy},
+		subject:       "subject",
+		body:          "body",
+		statusHistory: make(StatusHistory, 0),
 	}
 	type args struct {
 		from    string
@@ -44,10 +47,10 @@ func TestNewEmail(t *testing.T) {
 		{
 			name: "should parse email correctly",
 			args: args{
-				bcc:     []string{"email1@gmail.com", "email2@gmail.com"},
-				cc:      []string{"email1@gmail.com", "email2@gmail.com"},
-				to:      []string{"email1@gmail.com", "email2@gmail.com"},
-				from:    "email@gmail.com",
+				bcc:     []string{"jonathan@example.com", "randy@example.com"},
+				cc:      []string{"jonathan@example.com", "randy@example.com"},
+				to:      []string{"jonathan@example.com", "randy@example.com"},
+				from:    "sam@example.com",
 				body:    "body",
 				subject: "subject",
 			},
@@ -57,10 +60,10 @@ func TestNewEmail(t *testing.T) {
 		{
 			name: "should parse named email correctly",
 			args: args{
-				bcc:     []string{"user <email1@gmail.com>", "email2@gmail.com"},
-				cc:      []string{"user <email1@gmail.com>", "email2@gmail.com"},
-				to:      []string{"user <email1@gmail.com>", "email2@gmail.com"},
-				from:    "email@gmail.com",
+				bcc:     []string{"Jim <jim@example.com>", "randy@example.com"},
+				cc:      []string{"Jim <jim@example.com>", "randy@example.com"},
+				to:      []string{"Jim <jim@example.com>", "randy@example.com"},
+				from:    "sam@example.com",
 				body:    "body",
 				subject: "subject",
 			},
@@ -70,10 +73,10 @@ func TestNewEmail(t *testing.T) {
 		{
 			name: "should fail if from is malformed",
 			args: args{
-				bcc:     []string{"email1@gmail.com", "email2@gmail.com"},
-				cc:      []string{"email1@gmail.com", "email2@gmail.com"},
-				to:      []string{"email1@gmail.com", "email2@gmail.com"},
-				from:    "emailgmail.com",
+				bcc:     []string{"jonathan@example.com", "randy@example.com"},
+				cc:      []string{"jonathan@example.com", "randy@example.com"},
+				to:      []string{"jonathan@example.com", "randy@example.com"},
+				from:    "emailexample.com",
 				body:    "body",
 				subject: "subject",
 			},
@@ -83,10 +86,10 @@ func TestNewEmail(t *testing.T) {
 		{
 			name: "should fail if to is malformed",
 			args: args{
-				bcc:     []string{"email1@gmail.com", "email2@gmail.com"},
-				cc:      []string{"email1@gmail.com", "email2@gmail.com"},
-				to:      []string{"email1gmail.com", "email2@gmail.com"},
-				from:    "email@gmail.com",
+				bcc:     []string{"jonathan@example.com", "randy@example.com"},
+				cc:      []string{"jonathan@example.com", "randy@example.com"},
+				to:      []string{"email1example.com", "randy@example.com"},
+				from:    "sam@example.com",
 				body:    "body",
 				subject: "subject",
 			},
@@ -96,10 +99,10 @@ func TestNewEmail(t *testing.T) {
 		{
 			name: "should fail if cc is malformed",
 			args: args{
-				bcc:     []string{"email1@gmail.com", "email2@gmail.com"},
-				cc:      []string{"email1gmail.com", "email2@gmail.com"},
-				to:      []string{"email1@gmail.com", "email2@gmail.com"},
-				from:    "email@gmail.com",
+				bcc:     []string{"jonathan@example.com", "randy@example.com"},
+				cc:      []string{"email1example.com", "randy@example.com"},
+				to:      []string{"jonathan@example.com", "randy@example.com"},
+				from:    "sam@example.com",
 				body:    "body",
 				subject: "subject",
 			},
@@ -109,10 +112,10 @@ func TestNewEmail(t *testing.T) {
 		{
 			name: "should fail if bcc is malformed",
 			args: args{
-				bcc:     []string{"email1gmail.com", "email2@gmail.com"},
-				cc:      []string{"email1@gmail.com", "email2@gmail.com"},
-				to:      []string{"email1@gmail.com", "email2@gmail.com"},
-				from:    "email@gmail.com",
+				bcc:     []string{"email1example.com", "randy@example.com"},
+				cc:      []string{"jonathan@example.com", "randy@example.com"},
+				to:      []string{"jonathan@example.com", "randy@example.com"},
+				from:    "sam@example.com",
 				body:    "body",
 				subject: "subject",
 			},
@@ -128,7 +131,7 @@ func TestNewEmail(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewEmail() = %v, want %v", got, tt.want)
+				fmt.Errorf("%s: got %v, want %v", tt.name, got, tt.want)
 			}
 		})
 	}

@@ -18,7 +18,8 @@ type Email struct {
 }
 
 // ID gets the id of the email
-func (m Email) ID() int { return m.id }
+func (m Email) ID() int       { return m.id }
+func (m *Email) SetID(id int) { m.id = id }
 
 // From gets the from
 func (m Email) From() mail.Address {
@@ -60,6 +61,15 @@ func (m Email) Subject() string {
 // Body gets the body
 func (m Email) Body() string {
 	return m.body
+}
+
+// StatusHistory gets the status history of the email
+func (m Email) StatusHistory() StatusHistory {
+	sh := make(StatusHistory, 0)
+	for _, v := range m.statusHistory {
+		sh = append(sh, v)
+	}
+	return sh
 }
 
 // AddStatusEvent adds an event to the email

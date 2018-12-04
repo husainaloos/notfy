@@ -10,6 +10,4 @@ message PublishedEmail {
 	repeated string bcc = 5;
 	string subject = 6;
 	string body = 7;
-	int64 published_at = 8;
-	int64 status_id = 9;
 }

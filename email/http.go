@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/husainaloos/notfy/logger"
-	"github.com/husainaloos/notfy/status"
 	"github.com/sirupsen/logrus"
 )
 
@@ -23,13 +23,13 @@ var (
 	errCannotReadBody     = errModel{"cannot ready body", 101}
 	errMalformedJSON      = errModel{"bad json", 102}
 	errBadRequest         = func(e error) errModel { return errModel{fmt.Sprintf("invalid request: %v", e), 103} }
-	errPublishFailed      = errModel{"failed to publish message", 104}
-	errStatusCreateFailed = errModel{"failed to create status", 105}
-	errCannotQueue        = errModel{"failed to schedule the email", 106}
+	errFailedToQueueEmail = errModel{"failed to queue email", 104}
+	errFailedToInitEmail  = errModel{"an error has occured", 105}
+	errStatusCreateFailed = errModel{"failed to create status", 106}
 	errGetEmailFailed     = errModel{"an error has occured", 107}
 )
 
-type postEmailDto struct {
+type postEmailModel struct {
 	From    string   `json:"from"`
 	To      []string `json:"to"`
 	CC      []string `json:"cc"`
@@ -38,27 +38,29 @@ type postEmailDto struct {
 	Body    string   `json:"body"`
 }
 
-type emailStatus struct {
-	ID        int       `json:"id"`
-	StatusID  int       `json:"status_id"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
+type getEmailModel struct {
+	From    string         `json:"from"`
+	To      []string       `json:"to"`
+	CC      []string       `json:"cc"`
+	BCC     []string       `json:"bcc"`
+	Subject string         `json:"subject"`
+	Body    string         `json:"body"`
+	History []emailHistory `json:"history"`
 }
 
-type getEmailDto struct {
-	From     string   `json:"from"`
-	To       []string `json:"to"`
-	CC       []string `json:"cc"`
-	BCC      []string `json:"bcc"`
-	Subject  string   `json:"subject"`
-	Body     string   `json:"body"`
-	StatusID int      `json:"status_id"`
-	Status   string   `json:"status"`
+type emailHistory struct {
+	Status string    `json:"status"`
+	At     time.Time `json:"at"`
+}
+
+type APIInterface interface {
+	Queue(context.Context, Email) (Email, error)
+	Get(context.Context, int) (Email, error)
 }
 
 // HTTPHandler is the handler for Email
 type HTTPHandler struct {
-	emailAPI APIInterface
+	api APIInterface
 }
 
 // NewHTTPHandler creates a new handler for email reqeusts
@@ -81,7 +83,7 @@ func (h *HTTPHandler) sendEmailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
-	var model postEmailDto
+	var model postEmailModel
 	if err := json.Unmarshal(body, &model); err != nil {
 		h.writeErr(w, r, errMalformedJSON, http.StatusBadRequest)
 		log.Debugf("failed to unmarshal json: %v", err)
@@ -93,23 +95,18 @@ func (h *HTTPHandler) sendEmailHandler(w http.ResponseWriter, r *http.Request) {
 		log.Debugf("failed to create email due to validation: %v", err)
 		return
 	}
-	email, info, err := h.emailAPI.Queue(r.Context(), e)
+	e, err = h.api.Queue(r.Context(), e)
 	if err != nil {
-		h.writeErr(w, r, errCannotQueue, http.StatusInternalServerError)
-		log.Errorf("could not queue email: %v", err)
+		h.writeErr(w, r, errFailedToQueueEmail, http.StatusInternalServerError)
+		log.Errorf("failed to queue email: %v", err)
 		return
 	}
 	log.WithFields(logrus.Fields{
-		"email_status":  info.Status().String(),
-		"email_subject": email.Subject(),
+		"email_from":    e.From(),
+		"email_subject": e.Subject(),
 	}).Debugf("email queued")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(emailStatus{
-		ID:        email.ID(),
-		StatusID:  info.ID(),
-		Status:    info.Status().String(),
-		CreatedAt: info.CreatedAt(),
-	})
+	json.NewEncoder(w).Encode(h.buildGetEmailDto(e))
 }
 
 func (h *HTTPHandler) getEmailHandler(w http.ResponseWriter, r *http.Request) {
@@ -122,10 +119,10 @@ func (h *HTTPHandler) getEmailHandler(w http.ResponseWriter, r *http.Request) {
 		log.WithField("id", idStr).Debugf("id passed is not a valid integer: %v", err)
 		return
 	}
-	email, info, err := h.emailAPI.Get(r.Context(), id)
+	email, err := h.api.Get(r.Context(), id)
 	if err != nil {
 		switch err {
-		case ErrEmailNotFound:
+		case ErrItemNotFound:
 			w.WriteHeader(http.StatusNotFound)
 			log.WithField("id", id).Debugf("email not found")
 			return
@@ -136,13 +133,13 @@ func (h *HTTPHandler) getEmailHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	model := h.buildGetEmailDto(email, info)
+	model := h.buildGetEmailDto(email)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(model)
 }
 
-func (h *HTTPHandler) buildGetEmailDto(e Email, i status.Info) getEmailDto {
-	model := getEmailDto{}
+func (h *HTTPHandler) buildGetEmailDto(e Email) getEmailModel {
+	model := getEmailModel{}
 	model.Body = e.Body()
 	model.Subject = e.Subject()
 
@@ -166,8 +163,12 @@ func (h *HTTPHandler) buildGetEmailDto(e Email, i status.Info) getEmailDto {
 	model.To = tos
 	model.CC = ccs
 	model.BCC = bccs
-	model.StatusID = i.ID()
-	model.Status = i.Status().String()
+
+	history := make([]emailHistory, 0)
+	for _, v := range e.StatusHistory() {
+		history = append(history, emailHistory{v.Status().String(), v.At()})
+	}
+	model.History = history
 	return model
 }
 

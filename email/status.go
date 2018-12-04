@@ -8,9 +8,8 @@ type Status int
 const (
 	Created Status = iota
 	Queued
-	AttemptedToSend
 	SentSuccessfully
-	FailedToSend
+	FailedAttemptToSend
 	QueuedForRetry
 	Dead
 )
@@ -20,8 +19,11 @@ type StatusEvent struct {
 	at     time.Time
 }
 
-func NewStatusEvent(status Status, at time.Time) StatusEvent {
-	return StatusEvent{status, at}
+func MakeStatusEvent(status Status, at time.Time) StatusEvent {
+	return StatusEvent{status, at.UTC()}
 }
+
+func (se StatusEvent) Status() Status { return se.status }
+func (se StatusEvent) At() time.Time  { return se.at }
 
 type StatusHistory []StatusEvent
