@@ -40,6 +40,17 @@ func (api *API) Queue(ctx context.Context, e Email) (Email, error) {
 	return email, nil
 }
 
+func (api *API) Get(ctx context.Context, id int) (Email, error) {
+	e, ok, err := api.storage.get(ctx, id)
+	if err != nil {
+		return Email{}, fmt.Errorf("failed to get from db: %v", err)
+	}
+	if !ok {
+		return Email{}, ErrItemNotFound
+	}
+	return e, nil
+}
+
 func (api *API) marshal(e Email) ([]byte, error) {
 	p := &dto.PublishedEmail{
 		Id:      int64(e.ID()),

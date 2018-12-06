@@ -39,6 +39,7 @@ type postEmailModel struct {
 }
 
 type getEmailModel struct {
+	ID      int            `json:"id"`
 	From    string         `json:"from"`
 	To      []string       `json:"to"`
 	CC      []string       `json:"cc"`
@@ -140,6 +141,7 @@ func (h *HTTPHandler) getEmailHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *HTTPHandler) buildGetEmailDto(e Email) getEmailModel {
 	model := getEmailModel{}
+	model.ID = e.ID()
 	model.Body = e.Body()
 	model.Subject = e.Subject()
 
