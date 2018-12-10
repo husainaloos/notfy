@@ -49,6 +49,13 @@ func (api *API) Get(ctx context.Context, id int) (Email, error) {
 	return e, nil
 }
 
-func (api *API) MarkDone(id int) error {
-	return nil
+func (api *API) Update(ctx context.Context, e Email) (Email, error) {
+	e, ok, err := api.storage.update(ctx, e)
+	if err != nil {
+		return Email{}, err
+	}
+	if !ok {
+		return Email{}, ErrItemNotFound
+	}
+	return e, nil
 }

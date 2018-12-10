@@ -2,6 +2,7 @@ package email
 
 import (
 	"context"
+	"time"
 
 	"github.com/husainaloos/notfy/messaging"
 	"github.com/sirupsen/logrus"
@@ -10,10 +11,12 @@ import (
 type Deamon struct {
 	consumers                []messaging.Consumer
 	addr, username, password string
+	clients                  chan *Client
 }
 
 func NewDeamon(consumers []messaging.Consumer, addr, username, password string) *Deamon {
-	return &Deamon{consumers, addr, username, password}
+	clients := make(chan *Client, 50)
+	return &Deamon{consumers, addr, username, password, clients}
 }
 
 func (d *Deamon) Start(ctx context.Context) {
@@ -42,6 +45,45 @@ func (d *Deamon) startConsuming(ctx context.Context, msgC chan []byte) {
 			}
 		}(c)
 	}
+}
+
+func (d *Deamon) getClient(ctx context.Context) (*Client, error) {
+	select {
+
+	case c := <-d.clients:
+		return c, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func (d *Deamon) putClient(ctx context.Context, c *Client) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case d.clients <- c:
+		return nil
+	}
+}
+func (d *Deamon) recycleClient(ctx context.Context, c *Client) *Client {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				newC, err := NewClient(d.addr, d.username, d.password)
+				if err != nil {
+					logrus.Errorf("cannot create client: %v", err)
+					continue
+				}
+				d.clients <- newC
+			}
+		}
+	}()
+
+	c.Close()
+	return <-d.clients
 }
 
 func (d *Deamon) startSending(ctx context.Context, msgC chan []byte) {
@@ -108,6 +150,7 @@ func (d *Deamon) startSending(ctx context.Context, msgC chan []byte) {
 						err := client.Send(e)
 						if err != nil {
 							logrus.WithField("email_id", e.ID()).Errorf("failed to send email: %v", err)
+							e.AddStatusEvent(MakeStatusEvent(FailedAttemptToSend, time.Now()))
 							client.Close()
 							clientErrC <- err
 							continue
@@ -115,6 +158,11 @@ func (d *Deamon) startSending(ctx context.Context, msgC chan []byte) {
 						logrus.WithField("email_id", e.ID()).Info("Email send")
 						sent = true
 						emailClient <- client
+					}
+					if sent {
+						e.AddStatusEvent(MakeStatusEvent(SentSuccessfully, time.Now()))
+					} else {
+						e.AddStatusEvent(MakeStatusEvent(Dead, time.Now()))
 					}
 				}(b)
 			}
