@@ -2,12 +2,18 @@ syntax = "proto3";
 
 package dto;
 
-message PublishedEmail {
-	int64 id = 1;
+message StatusEvent {
+	uint32 status = 1;
+	uint64 at = 2;
+}
+
+message QueuedEmail {
+	uint64 id = 1;
 	string from = 2;
 	repeated string to = 3;
 	repeated string cc = 4;
 	repeated string bcc = 5;
 	string subject = 6;
 	string body = 7;
+	repeated StatusEvent status = 8;
 }

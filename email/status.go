@@ -2,7 +2,7 @@ package email
 
 import "time"
 
-type Status int
+type Status uint32
 
 //go:generate stringer -type Status
 const (
@@ -10,7 +10,6 @@ const (
 	Queued
 	SentSuccessfully
 	FailedAttemptToSend
-	QueuedForRetry
 	Dead
 )
 

@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/husainaloos/notfy/dto"
 	"github.com/husainaloos/notfy/messaging"
 )
 
@@ -25,7 +23,7 @@ func NewAPI(p messaging.Publisher, s Storage) *API {
 }
 
 func (api *API) Queue(ctx context.Context, e Email) (Email, error) {
-	b, err := api.marshal(e)
+	b, err := Marshal(e)
 	if err != nil {
 		return Email{}, fmt.Errorf("failed to marshal email to protobuffer: %v", err)
 	}
@@ -51,29 +49,6 @@ func (api *API) Get(ctx context.Context, id int) (Email, error) {
 	return e, nil
 }
 
-func (api *API) marshal(e Email) ([]byte, error) {
-	p := &dto.PublishedEmail{
-		Id:      int64(e.ID()),
-		Subject: e.Subject(),
-		Body:    e.Body(),
-	}
-	from := e.From()
-	to := []string{}
-	cc := []string{}
-	bcc := []string{}
-	for _, v := range e.To() {
-		to = append(to, v.String())
-	}
-	for _, v := range e.CC() {
-		cc = append(cc, v.String())
-	}
-	for _, v := range e.BCC() {
-		bcc = append(bcc, v.String())
-	}
-	p.To = to
-	p.Cc = cc
-	p.Bcc = bcc
-	p.From = from.String()
-
-	return proto.Marshal(p)
+func (api *API) MarkDone(id int) error {
+	return nil
 }

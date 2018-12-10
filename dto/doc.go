@@ -1,3 +1,3 @@
 package dto
 
-//go:generate protoc --go_out=. publishedEmail.proto
+//go:generate protoc --go_out=. queuedEmail.proto
