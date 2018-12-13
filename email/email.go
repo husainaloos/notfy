@@ -25,12 +25,23 @@ func (m *Email) SetID(id int) { m.id = id }
 func (m Email) From() mail.Address {
 	return *m.from
 }
+func (m Email) StringFrom() string {
+	return m.from.String()
+}
 
 // To gets the to
 func (m Email) To() []mail.Address {
 	arr := make([]mail.Address, len(m.to))
 	for i, v := range m.to {
 		arr[i] = *v
+	}
+	return arr
+}
+
+func (m Email) StringTo() []string {
+	arr := []string{}
+	for _, v := range m.to {
+		arr = append(arr, v.String())
 	}
 	return arr
 }
@@ -44,11 +55,27 @@ func (m Email) CC() []mail.Address {
 	return arr
 }
 
+func (m Email) StringCC() []string {
+	arr := []string{}
+	for _, v := range m.cc {
+		arr = append(arr, v.String())
+	}
+	return arr
+}
+
 // BCC gets the bcc
 func (m Email) BCC() []mail.Address {
 	arr := make([]mail.Address, len(m.bcc))
 	for i, v := range m.bcc {
 		arr[i] = *v
+	}
+	return arr
+}
+
+func (m Email) StringBCC() []string {
+	arr := []string{}
+	for _, v := range m.bcc {
+		arr = append(arr, v.String())
 	}
 	return arr
 }

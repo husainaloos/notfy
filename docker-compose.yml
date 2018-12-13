@@ -16,9 +16,10 @@ services:
                         - PGADMIN_DEFAULT_PASSWORD=password
                 ports:
                         - "8081:80"
-        redis:
-                image: redis 
+        rabbitmq:
+                image: rabbitmq:3-management 
                 ports:
-                        - "6379:6379"
+                        - "5672:5672"
+                        - "8080:15672"
 networks:
         default:
