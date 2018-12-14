@@ -17,16 +17,18 @@ type DeamonConfig struct {
 }
 
 type Deamon struct {
-	consumers                []messaging.Consumer
+	consumers                []messaging.Subscriber
+	storage                  Storage
 	addr, username, password string
 	nclients                 int
 	clients                  chan *Client
 }
 
-func NewDeamon(consumers []messaging.Consumer, cfg DeamonConfig) *Deamon {
+func NewDeamon(consumers []messaging.Subscriber, storage Storage, cfg DeamonConfig) *Deamon {
 	clients := make(chan *Client, cfg.SMTPConnectionCount)
 	d := &Deamon{
 		consumers: consumers,
+		storage:   storage,
 		addr:      cfg.SMTPAddr,
 		username:  cfg.SMTPUsername,
 		password:  cfg.SMTPPassword,
@@ -56,32 +58,17 @@ func NewDeamon(consumers []messaging.Consumer, cfg DeamonConfig) *Deamon {
 func (d *Deamon) Start(ctx context.Context) {
 	logrus.Debug("deamon starting")
 	msgC := d.consume(ctx)
-	d.processMessages(msgC)
+	d.processMessages(ctx, msgC)
 }
 
 func (d *Deamon) consume(ctx context.Context) chan []byte {
 	msgC := make(chan []byte)
+	sf := func(b []byte) {
+		msgC <- b
+	}
 	go func() {
 		for _, c := range d.consumers {
-			go func(c messaging.Consumer, msgC chan []byte) {
-				logrus.Debug("starting routine for consumer")
-				for {
-					select {
-					case <-ctx.Done():
-						close(msgC)
-						logrus.Info("context is cancelled: channel closed")
-						return
-					default:
-						b, err := c.Consume()
-						if err != nil {
-							logrus.Errorf("failed to receive message from consumer: %v", err)
-							continue
-						}
-						logrus.WithField("msg_size", len(b)).Info("message received from consumer")
-						msgC <- b
-					}
-				}
-			}(c, msgC)
+			c.Subscribe(sf)
 		}
 	}()
 	return msgC
@@ -113,7 +100,7 @@ func (d *Deamon) recycleClient(c *Client) *Client {
 	return <-d.clients
 }
 
-func (d *Deamon) processMessages(msgC chan []byte) {
+func (d *Deamon) processMessages(ctx context.Context, msgC chan []byte) {
 	logrus.Debug("email sending routine started")
 	var wg sync.WaitGroup
 	for msg := range msgC {
@@ -127,32 +114,38 @@ func (d *Deamon) processMessages(msgC chan []byte) {
 				logrus.Errorf("cannot parse email: %v", err)
 				return
 			}
-			logrus.WithField("email_id", email.ID()).Info("email received")
+			logger := logrus.WithField("email_id", email.ID())
+			logger.Info("email received")
 			emailSent := false
 			for i := 0; i < 5 && !emailSent; i++ {
-				logrus.WithFields(logrus.Fields{
-					"email_id":    email.ID(),
-					"retry_count": i + 1,
-				}).Debug("trying to send email")
+				countLogger := logger.WithField("retry_count", i+1)
+				countLogger.Debug("trying to send email")
 				if err := c.Send(email); err != nil {
-					logrus.WithFields(logrus.Fields{
-						"email_id":    email.ID(),
-						"retry_count": i + 1,
-					}).Errorf("failed to send email: %v", err)
+					countLogger.Errorf("failed to send email: %v", err)
 					email.AddStatusEvent(MakeStatusEvent(FailedAttemptToSend, time.Now()))
+					time.Sleep(5 * time.Second)
 					c = d.recycleClient(c)
 					continue
 				}
-				logrus.WithField("email_id", email.ID()).Info("email sent")
+				countLogger.Info("email sent")
 				emailSent = true
+
 			}
 			if emailSent {
 				email.AddStatusEvent(MakeStatusEvent(SentSuccessfully, time.Now()))
 			} else {
-				logrus.WithField("email_id", email.ID()).Error("email is dead")
+				logger.Error("email is dead")
 				email.AddStatusEvent(MakeStatusEvent(Dead, time.Now()))
 			}
 			d.putClient(c)
+			_, ok, err := d.storage.update(ctx, email)
+			if err != nil {
+				logger.Errorf("failed to update email: %v", err)
+			} else if !ok {
+				logger.Errorf("email to update does not exist")
+			} else {
+				logger.Debug("email updated successfully")
+			}
 		}(msg, c)
 	}
 	wg.Wait()

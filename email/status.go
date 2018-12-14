@@ -6,8 +6,7 @@ type Status uint32
 
 //go:generate stringer -type Status
 const (
-	Created Status = iota
-	Queued
+	Queued Status = iota
 	SentSuccessfully
 	FailedAttemptToSend
 	Dead

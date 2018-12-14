@@ -1,7 +1,9 @@
 package messaging
 
+// InMemoryBroker is a broker that runs in memory
 type InMemoryBroker struct{ C chan []byte }
 
+// NewInMemoryBroker creates new instance of InMemoryBroker
 func NewInMemoryBroker() *InMemoryBroker {
 	return &InMemoryBroker{make(chan []byte, 100000)}
 }
@@ -18,6 +20,7 @@ func (b *InMemoryBroker) Close() error {
 	return nil
 }
 
+// Consume messages from broker
 func (b *InMemoryBroker) Consume() ([]byte, error) {
 	return <-b.C, nil
 }

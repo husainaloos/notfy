@@ -11,6 +11,7 @@ import (
 // RabbitMqConnection is an implementation of Publisher for rabbit mq.
 type RabbitMqConnection struct {
 	conn    *amqp.Connection
+	ch      *amqp.Channel
 	connStr string
 	queue   string
 }
@@ -25,8 +26,13 @@ func NewRabbitMqConnection(connStr, queue string) (*RabbitMqConnection, error) {
 	if err != nil {
 		return nil, err
 	}
+	ch, err := conn.Channel()
+	if err != nil {
+		return nil, fmt.Errorf("cannot open channel: %v", err)
+	}
 	rmc := &RabbitMqConnection{
 		conn:    conn,
+		ch:      ch,
 		connStr: connStr,
 		queue:   queue,
 	}
@@ -48,17 +54,23 @@ func (c *RabbitMqConnection) Publish(b []byte) error {
 	return ch.Publish("", c.queue, false, false, amqp.Publishing{Body: b})
 }
 
+// Consume messages from queue
+func (c *RabbitMqConnection) Consume() ([]byte, error) {
+	d, err := c.ch.Consume(c.queue, "", true, false, false, false, nil)
+	if err != nil {
+		return nil, err
+	}
+	return (<-d).Body, nil
+}
+
 // Close the rabbit mq connection
 func (c *RabbitMqConnection) Close() error {
+	c.ch.Close()
 	return c.conn.Close()
 }
 
 func (c *RabbitMqConnection) queueDeclare() error {
-	ch, err := c.conn.Channel()
-	if err != nil {
-		return fmt.Errorf("failed to create a channel: %v", err)
-	}
-	_, err = ch.QueueDeclare(
+	_, err := c.ch.QueueDeclare(
 		c.queue,
 		true,
 		false,

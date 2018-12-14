@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/husainaloos/notfy/dto"
+	"github.com/sirupsen/logrus"
 )
 
 func Marshal(e Email) ([]byte, error) {
@@ -41,6 +42,7 @@ func Marshal(e Email) ([]byte, error) {
 	p.From = from.String()
 	p.Status = se
 
+	logrus.Debug("email to queue", p)
 	return proto.Marshal(p)
 }
 

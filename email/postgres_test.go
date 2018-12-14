@@ -11,8 +11,8 @@ func TestPostgressStorageInsert(t *testing.T) {
 	e, _ := New(0, "myself@myself.com", []string{"to@to.com"}, []string{"cc@cc.com", "cc2@cc.com"}, []string{}, "subject", "body")
 	t1, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 	t2, _ := time.Parse(time.RFC3339, "2007-02-02T15:04:05Z")
-	e.AddStatusEvent(MakeStatusEvent(Created, t1))
-	e.AddStatusEvent(MakeStatusEvent(Queued, t2))
+	e.AddStatusEvent(MakeStatusEvent(Queued, t1))
+	e.AddStatusEvent(MakeStatusEvent(SentSuccessfully, t2))
 	connStr := "postgres://postgres:postgres@localhost/notfy?sslmode=disable"
 	pg, err := NewPostgresStorage(connStr)
 	if err != nil {
@@ -70,8 +70,8 @@ func TestPostgressStorageGet(t *testing.T) {
 	expect, _ := New(1, "myself@myself.com", []string{"to@to.com"}, []string{"cc@cc.com", "cc2@cc.com"}, []string{}, "subject", "body")
 	t1, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 	t2, _ := time.Parse(time.RFC3339, "2007-02-02T15:04:05Z")
-	expect.AddStatusEvent(MakeStatusEvent(Created, t1))
-	expect.AddStatusEvent(MakeStatusEvent(Queued, t2))
+	expect.AddStatusEvent(MakeStatusEvent(Queued, t1))
+	expect.AddStatusEvent(MakeStatusEvent(SentSuccessfully, t2))
 
 	if !reflect.DeepEqual(e, expect) {
 		t.Fatalf("got %v, but expected %v", e, expect)
@@ -86,8 +86,8 @@ func TestPostgressStorageUpdate(t *testing.T) {
 	}
 	e, _ := New(2, "myself@myself.com", []string{"to@to.com"}, []string{"cc@cc.com", "cc2@cc.com"}, []string{}, "subject", "body")
 	now := time.Now()
-	e.AddStatusEvent(MakeStatusEvent(Created, now))
 	e.AddStatusEvent(MakeStatusEvent(Queued, now))
+	e.AddStatusEvent(MakeStatusEvent(SentSuccessfully, now))
 
 	got, ok, err := pg.update(context.Background(), e)
 	if err != nil {
