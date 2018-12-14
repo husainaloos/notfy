@@ -1,7 +1,6 @@
 package email
 
 import (
-	"fmt"
 	"net/mail"
 	"reflect"
 	"testing"
@@ -11,7 +10,7 @@ func TestNewEmail(t *testing.T) {
 	jonathan, _ := mail.ParseAddress("jonathan@example.com")
 	randy, _ := mail.ParseAddress("randy@example.com")
 	sam, _ := mail.ParseAddress("sam@example.com")
-	jim, _ := mail.ParseAddress("jim@example.com")
+	jim, _ := mail.ParseAddress("Jim <jim@example.com>")
 	unnamedEmail := Email{
 		from:          sam,
 		to:            []*mail.Address{jonathan, randy},
@@ -131,7 +130,7 @@ func TestNewEmail(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				fmt.Errorf("%s: got %v, want %v", tt.name, got, tt.want)
+				t.Errorf("%s: got %s, want %s", tt.name, got.testString(), tt.want.testString())
 			}
 		})
 	}

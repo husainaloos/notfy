@@ -1,8 +1,10 @@
 package email
 
 import (
+	"encoding/json"
 	"errors"
 	"net/mail"
+	"time"
 )
 
 // Email is the email struct
@@ -138,6 +140,41 @@ func New(id int, from string, to, cc, bcc []string, subject, body string) (Email
 		return Email{}, err
 	}
 	return Email{id, f, tos, ccs, bccs, subject, body, make(StatusHistory, 0)}, nil
+}
+
+func (e Email) testString() string {
+	type se struct {
+		Status int       `json:"status"`
+		At     time.Time `json:"at"`
+	}
+	type testEmail struct {
+		ID           int      `json:"id"`
+		From         string   `json:"from"`
+		To           []string `json:"to"`
+		CC           []string `json:"cc"`
+		BCC          []string `json:"bcc"`
+		Subject      string   `json:"subject"`
+		Body         string   `json:"body"`
+		StatusEvents []se     `json:"status_events"`
+	}
+
+	te := testEmail{
+		ID:           e.ID(),
+		From:         e.StringFrom(),
+		To:           e.StringTo(),
+		CC:           e.StringCC(),
+		BCC:          e.StringBCC(),
+		Subject:      e.Subject(),
+		Body:         e.Body(),
+		StatusEvents: []se{},
+	}
+
+	for _, v := range e.StatusHistory() {
+		te.StatusEvents = append(te.StatusEvents, se{int(v.Status()), v.At()})
+	}
+
+	j, _ := json.MarshalIndent(te, "", "  ")
+	return string(j)
 }
 
 func parseAddList(addrs []string) ([]*mail.Address, error) {
